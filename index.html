@@ -61,7 +61,7 @@
         </label>
         <label>
           Finalizar (segundos):
-          <input type="number" id="startTimeInput" value="1" min="0" />
+          <input type="number" id="endTimeInput" value="1" min="0" />
         </label>
         <label>
           Intervalo (segundos):
@@ -81,7 +81,7 @@
       </div>
     
       <div id="loader" class="loader none">
-        <span class="spinner"></span> Procesando...
+        <span class="spinner"></span> Procesando... <span id="porcentaje"></span>
       </div>
     
       <canvas id="canvas" width="400" height="300" style="display: none;"></canvas>

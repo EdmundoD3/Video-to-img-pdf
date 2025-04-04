@@ -64,7 +64,7 @@ async function generatePDF(images, { name = "capturas_video", width, height }) {
 // 📂 Manejo del archivo
 // ==========================
 class FileManager {
-  constructor(dropZone, titleFile) {
+  constructor({dropZone, titleFile}) {
     this.dropZone = dropZone;
     this.titleFile = titleFile;
   }
@@ -103,7 +103,7 @@ class VideoManager {
     this.context = canvas.getContext("2d");
     this.startTime = parseInt(startTime.value) || 0;
     this.endTime = parseInt(endTime.value) || 0;
-    this.lapTime = lapTime;
+    this.lapTime = parseInt(lapTime.value) || 5;
     this.videoInput = videoInput;
     this.fileManager = fileManager;
     this.name = null;
@@ -222,7 +222,7 @@ class VideoManager {
 // 📦 UI/UX - Drag & Drop
 // ==========================
 class DropContainerManager {
-  constructor(dropZone, dropTitle,videoInput) {
+  constructor({dropZone, dropTitle,videoInput}) {
     this.dropZone = dropZone;
     this.dropTitle = dropTitle;
     this.videoInput = videoInput;
@@ -270,18 +270,19 @@ class ProgressBar {
 }
 const progressBar = new ProgressBar(porcentaje);
 
-const fileManager = new FileManager(dropZone, document.getElementById("title-file"));
+const fileManager = new FileManager({dropZone,titleFile: document.getElementById("title-file")});
 const videoManager = new VideoManager({
   video,
   canvas,
   videoInput,
-  startTime: parseInt(document.getElementById("startTimeInput").value),
-  lapTime: parseInt(document.getElementById("lapTimeInput").value),
+  startTime: document.getElementById("startTimeInput"),
+  lapTime: document.getElementById("lapTimeInput"),
   fileManager,
-  progressBar
+  progressBar,
+  endTime: document.getElementById("endTimeInput"),
 });
-
-const dropManager = new DropContainerManager(dropZone, dropTitle, videoInput);
+console.log(videoInput);
+const dropManager = new DropContainerManager({dropZone, dropTitle, videoInput});
 dropManager.activate();
 
 videoManager.inputStart();

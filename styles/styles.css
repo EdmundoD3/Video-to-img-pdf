@@ -1,0 +1,342 @@
+/* Estilos base y reset */
+body {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  margin: 0;
+  padding: 2rem;
+  background-color: #f0f2f5;
+  color: #333;
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+/* Estructura principal */
+.app-container {
+  background: #fff;
+  padding: 2rem;
+  border-radius: 1rem;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  width: 100%;
+  max-width: 800px;
+  text-align: center;
+}
+
+main {
+  width: 100%;
+}
+
+section {
+  margin-bottom: 2rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+}
+
+h1, h2 {
+  margin: 0 0 1.5rem 0;
+}
+
+/* Componente de video */
+.video {
+  width: 100%;
+  max-width: 400px;
+  margin: 20px 0;
+  display: block;
+}
+
+.video:not([src]), .video[src=""] {
+  display: none;
+}
+
+/* Componente de carga de archivos */
+.container {
+  height: auto;
+  width: 300px;
+  border-radius: 10px;
+  box-shadow: 4px 4px 30px rgba(0, 0, 0, .2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem;
+  gap: 5px;
+  background-color: rgba(0, 110, 255, 0.041);
+  margin: 1rem auto;
+}
+
+.header {
+  flex: 1;
+  width: 100%;
+  margin: 0 0.8rem;
+  /* padding: 0.8rem 0.8rem; */
+  border: 2px dashed royalblue;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  cursor: pointer;
+  transition: border-color 0.3s;
+}
+
+.header:hover {
+  border-color: #0056b3;
+}
+
+.header svg {
+  height: 100px;
+}
+
+.header p {
+  text-align: center;
+  color: black;
+  margin: 10px 0 0 0;
+}
+
+.footer {
+  background-color: rgba(0, 110, 255, 0.075);
+  width: 100%;
+  height: 40px;
+  padding: 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  color: black;
+  border: none;
+}
+
+.footer svg {
+  height: 24px;
+  fill: royalblue;
+  background-color: rgba(70, 66, 66, 0.103);
+  border-radius: 50%;
+  padding: 2px;
+  cursor: pointer;
+  box-shadow: 0 2px 30px rgba(0, 0, 0, 0.205);
+  transition: transform 0.3s;
+}
+
+.footer svg:hover {
+  transform: scale(1.1);
+}
+
+.footer p {
+  flex: 1;
+  text-align: center;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+#videoUpload {
+  display: none;
+}
+
+/* Botones */
+.btn-video-content {
+  margin-top: 1.5rem;
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+
+#captureBtn, #deleteVideo {
+  padding: 0.8rem 1.5rem;
+  font-size: 1rem;
+  border: none;
+  border-radius: 0.6rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+#captureBtn {
+  background-color: #007bff;
+  color: white;
+}
+
+#captureBtn:hover {
+  background-color: #0056b3;
+}
+
+#deleteVideo {
+  background-color: #f8f9fa;
+  color: #dc3545;
+  border: 1px solid #dc3545;
+}
+
+#deleteVideo:hover {
+  background-color: #dc3545;
+  color: white;
+}
+
+/* Componente de checkbox mute */
+.check {
+  cursor: pointer;
+  position: relative;
+  margin: auto;
+  width: 18px;
+  height: 18px;
+  -webkit-tap-highlight-color: transparent;
+  transform: translate3d(0, 0, 0);
+}
+
+.check:before {
+  content: "";
+  position: absolute;
+  top: -15px;
+  left: -15px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(33, 33, 33, 0%);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.check svg {
+  position: relative;
+  z-index: 1;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke: #c8ccd4;
+  stroke-width: 1.5;
+  transform: translate3d(0, 0, 0);
+  transition: all 0.2s ease;
+}
+
+.check svg path {
+  stroke-dasharray: 60;
+  stroke-dashoffset: 0;
+}
+
+.check svg polyline {
+  stroke-dasharray: 22;
+  stroke-dashoffset: 66;
+}
+
+.check:hover:before {
+  opacity: 1;
+}
+
+.check:hover svg {
+  stroke: #4285f4;
+}
+
+#mute:checked + .check svg {
+  stroke: #4285f4;
+}
+
+#mute:checked + .check svg path {
+  stroke-dashoffset: 60;
+  transition: all 0.3s linear;
+}
+
+#mute:checked + .check svg polyline {
+  stroke-dashoffset: 42;
+  transition: all 0.2s linear;
+  transition-delay: 0.15s;
+  stroke: #5fa212;
+}
+
+/* Componente de reproductor/progreso */
+.music-card {
+  width: 100%;
+  max-width: 340px;
+  margin: 1rem auto;
+  background-color: #f7f7f7;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.progress-container {
+  position: relative;
+  margin: 16px 16px 8px 16px;
+  height: 6px;
+  background-color: #e5e7eb;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-bar {
+  appearance: none;
+  -webkit-appearance: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  background-color: #f59e0b;
+  border-radius: 5px;
+  outline: none;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+  cursor: pointer;
+}
+
+.progress-bar:hover {
+  opacity: 1;
+}
+
+.progress-bar::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  background: #4CAF50;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.progress-bar::-webkit-slider-thumb:hover {
+  background: #45a049;
+}
+
+.progress-bar::-webkit-slider-thumb {
+  box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.2);
+}
+
+.progress-time {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 16px 16px 16px;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+/* Utilidades */
+.none {
+  display: none !important;
+}
+
+.drag-over {
+  border-color: #28a745 !important;
+  background-color: rgba(40, 167, 69, 0.1) !important;
+}
+
+/* Animaciones */
+@keyframes mute {
+  from { transform: scale(1, 1); }
+  30% { transform: scale(1.25, 0.75); }
+  40% { transform: scale(0.75, 1.25); }
+  50% { transform: scale(1.15, 0.85); }
+  65% { transform: scale(0.95, 1.05); }
+  75% { transform: scale(1.05, 0.95); }
+  to { transform: scale(1, 1); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Elementos específicos */
+#trash {
+  z-index: 10;
+}
+
+.span-content {
+  display: contents;
+}

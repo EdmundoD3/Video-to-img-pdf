@@ -41,21 +41,26 @@ function loadImageAsDataURL(url) {
 // ==========================
 async function generatePDF(images, { name = "capturas_video", width, height }) {
   const orientation = width > height ? "landscape" : "portrait";
-  const pdf = new jsPDF({ orientation });
-
   const pageWidth = pxToMm(width);
   const pageHeight = pxToMm(height);
+  
+  // Crea el PDF con el tamaño de página correcto desde el inicio
+  const pdf = new jsPDF({
+    orientation,
+    unit: 'mm',
+    format: [pageWidth, pageHeight]  // Establece el tamaño personalizado
+  });
 
   images.forEach((img, i) => {
+    // Si no es la primera página, añade una nueva con el mismo tamaño
     if (i > 0) {
       pdf.addPage([pageWidth, pageHeight], orientation);
     }
+    
     pdf.addImage(img, typeImage.toUpperCase(), 0, 0, pageWidth, pageHeight);
     pdf.setFontSize(12);
     pdf.text(`Página ${i + 1}`, pageWidth - 30, pageHeight - 10);
   });
-
-
 
   pdf.save(`${name}-converted-to-PDF.pdf`);
 }
@@ -64,7 +69,7 @@ async function generatePDF(images, { name = "capturas_video", width, height }) {
 // 📂 Manejo del archivo
 // ==========================
 class FileManager {
-  constructor({dropZone, titleFile}) {
+  constructor({ dropZone, titleFile }) {
     this.dropZone = dropZone;
     this.titleFile = titleFile;
   }
@@ -97,7 +102,8 @@ class FileManager {
 // 🎞️ Manejo del video
 // ==========================
 class VideoManager {
-  constructor({ video, canvas, startTime, endTime, lapTime, videoInput, fileManager, progressBar }) {
+  constructor({ video, canvas, startTime, endTime, lapTime, videoInput, fileManager, progressBar, timeManager }) {
+    this.timeManager = timeManager;
     this.video = video;
     this.canvas = canvas;
     this.context = canvas.getContext("2d");
@@ -107,7 +113,7 @@ class VideoManager {
     this.videoInput = videoInput;
     this.fileManager = fileManager;
     this.name = null;
-    this.duration = null;
+    // this.duration = null;
     this.progressBar = progressBar;
   }
 
@@ -126,7 +132,13 @@ class VideoManager {
     }
     this.name = file.name;
     this.video.src = URL.createObjectURL(file);
-    this.duration = await this.getVideoDuration();
+    // this.duration = await this.getVideoDuration();
+    this.timeManager.setTimes({
+      startTime: 0,
+      lapTime: 5,
+      endTime: await this.getVideoDuration(),
+      maxTime: await this.getVideoDuration()
+    });
     this.fileManager.title = file.name;
     this.fileManager.hideInputForm();
   }
@@ -151,7 +163,8 @@ class VideoManager {
 
   deleteVideo() {
     this.name = null;
-    this.duration = null;
+    // this.duration = null;
+    this.timeManager.endTime = 0;
     this.video.src = "";
     this.fileManager.resetAndShowInputForm();
   }
@@ -196,7 +209,7 @@ class VideoManager {
     if (!this.isLoaded()) return;
     showLoader();
     try {
-      const times = timeToArray(this.endTime | this.duration, this.lapTime, this.startTime);
+      const times = this.timeManager.getTimes(); //timeToArray(this.endTime | this.duration, this.lapTime, this.startTime);
       const totalCaptures = times.length;
       const captures = await this.captureMultiple(times, totalCaptures);
       const data = {
@@ -222,7 +235,7 @@ class VideoManager {
 // 📦 UI/UX - Drag & Drop
 // ==========================
 class DropContainerManager {
-  constructor({dropZone, dropTitle,videoInput}) {
+  constructor({ dropZone, dropTitle, videoInput }) {
     this.dropZone = dropZone;
     this.dropTitle = dropTitle;
     this.videoInput = videoInput;
@@ -258,6 +271,70 @@ const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const captureBtn = document.getElementById("captureBtn");
 const porcentaje = document.getElementById("porcentaje");
+class TimeManager {
+  constructor({ startTime, lapTime, endTime }) {
+    this.startTimeElement = startTime;
+    this.lapTimeElement = lapTime;
+    this.endTimeElement = endTime;
+    this._maxTime = 0;
+  }
+  get maxTime() {
+    return this._maxTime;
+  }
+  set maxTime(value) {
+    this._maxTime = value;
+    this.endTimeElement.max = value;
+  }
+  get endTime () {
+    return parseInt(this.endTimeElement.value) || 0;
+  }
+  set endTime(value) {
+    // this.startTimeElement.max = value;
+    this.endTimeElement.value = value;
+  }
+  get lapTime() {
+    
+    return parseInt(this.lapTimeElement.value) || 5;
+  }
+  set lapTime(value) {
+    this.lapTimeElement.max = this.endTime;
+    this.lapTimeElement.value = value;
+  }
+  get startTime() {
+    const startTime = parseInt(this.startTimeElement.value) || 0;
+    if (startTime > this.endTime) {
+      this.startTimeElement.value = this.endTime;
+      return this.endTime;
+    }
+    return parseInt(this.startTimeElement.value) || 0;
+  }
+  set startTime(value) {
+    this.startTimeElement.max = this.endTime;
+    this.startTimeElement.value = value;
+  }
+  clear() {
+    this.startTime = 0;
+    this.lapTime = 5;
+    this.endTime = 0;
+    this.maxTime = 0;
+  }
+  setTimes({ startTime, lapTime, endTime, maxTime }) {
+    this.endTime = endTime;
+    this.maxTime = maxTime;
+    this.startTime = startTime;
+    this.lapTime = lapTime;
+
+  }
+
+  getTimes() {
+    return timeToArray(this.endTime | this.maxTime, this.lapTime, this.startTime);
+  }
+}
+const timeManager = new TimeManager({
+  startTime: document.getElementById("startTimeInput"),
+  lapTime: document.getElementById("lapTimeInput"),
+  endTime: document.getElementById("endTimeInput"),
+});
 class ProgressBar {
   constructor(porcentaje) {
     this.porcentaje = porcentaje;
@@ -270,7 +347,7 @@ class ProgressBar {
 }
 const progressBar = new ProgressBar(porcentaje);
 
-const fileManager = new FileManager({dropZone,titleFile: document.getElementById("title-file")});
+const fileManager = new FileManager({ dropZone, titleFile: document.getElementById("title-file") });
 const videoManager = new VideoManager({
   video,
   canvas,
@@ -280,9 +357,9 @@ const videoManager = new VideoManager({
   fileManager,
   progressBar,
   endTime: document.getElementById("endTimeInput"),
+  timeManager
 });
-console.log(videoInput);
-const dropManager = new DropContainerManager({dropZone, dropTitle, videoInput});
+const dropManager = new DropContainerManager({ dropZone, dropTitle, videoInput });
 dropManager.activate();
 
 videoManager.inputStart();

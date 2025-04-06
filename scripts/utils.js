@@ -39,8 +39,13 @@ function loadImageAsDataURL(url) {
 // ==========================
 // 🖨️ Generador de PDF
 // ==========================
-async function generatePDF(images, { name = "capturas_video", width, height }) {
+async function generatePDF(images, { name = "capturas_video", width, height, compression = 100 }) {
   if (!images?.length) throw new Error("No hay imágenes para generar PDF");
+  
+  // Validar parámetro de compresión
+  if (compression <= 0 || compression > 100) {
+    throw new Error("El porcentaje de compresión debe estar entre 1 y 100");
+  }
 
   const orientation = width > height ? "landscape" : "portrait";
   const pageWidth = pxToMm(width);
@@ -50,22 +55,53 @@ async function generatePDF(images, { name = "capturas_video", width, height }) {
     orientation,
     unit: 'mm',
     format: [pageWidth, pageHeight],
-    hotfixes: ["px_scaling"] // Mejor manejo de imágenes
+    hotfixes: ["px_scaling"]
   });
 
+  // Procesar cada imagen con compresión
   for (let i = 0; i < images.length; i++) {
+    let imgData = images[i];
+    
+    // Aplicar compresión si no es 100%
+    if (compression < 100) {
+      imgData = await compressImageForPDF(imgData, compression);
+    }
+
     if (i > 0) pdf.addPage([pageWidth, pageHeight], orientation);
     
-    pdf.addImage(images[i], typeImage.toUpperCase(), 0, 0, pageWidth, pageHeight, 
-      undefined, 'FAST'); // Modo rápido para muchas imágenes
+    pdf.addImage(imgData, typeImage.toUpperCase(), 0, 0, pageWidth, pageHeight, 
+      undefined, compression < 50 ? 'FAST' : 'MEDIUM');
     
-    // Texto más legible
     pdf.setFont("helvetica", "normal");
     pdf.setTextColor(100);
     pdf.text(`Página ${i + 1}`, pageWidth - 30, pageHeight - 10);
   }
 
   pdf.save(`${name}-converted-to-PDF.pdf`);
+}
+
+// Función auxiliar para compresión de imágenes
+async function compressImageForPDF(imageData, qualityPercent) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      // Calcular nuevas dimensiones
+      const scale = qualityPercent / 100;
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      
+      // Dibujar imagen redimensionada
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      
+      // Convertir a formato compatible con jsPDF
+      const compressedData = canvas.toDataURL(`image/${typeImage}`, 0.8);
+      resolve(compressedData);
+    };
+    img.src = imageData;
+  });
 }
 // ==========================
 // 🖨️ Generador de Gif

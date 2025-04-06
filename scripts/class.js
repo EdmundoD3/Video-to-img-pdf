@@ -64,13 +64,13 @@ class MemorizedParams {
 class VideoManager {
   constructor({ video = document.createElement("video"), canvas, format,
     videoInput = document.createElement("input"), fileManager = new FileManager({}),
-    progressBar = new ProgressBar(), timeManager = new TimeManager({}) }) {
-    if (!timeManager instanceof TimeManager)
-      throw new Error("timeManager no es válido. Debe ser una instancia de TimeManager")
+    progressBar = new ProgressBar(), settingsManager = new SettingsManager({}) }) {
+    if (!settingsManager instanceof SettingsManager)
+      throw new Error("settingsManager no es válido. Debe ser una instancia de SettingsManager")
     if (!video instanceof HTMLInputElement)
       throw new Error("video no es válido. Debe ser una instancia de HTMLInputElement")
-    if (!(timeManager instanceof TimeManager))
-      throw new Error("timeManager no es válido. Debe ser una instancia de TimeManager.");
+    if (!(settingsManager instanceof SettingsManager))
+      throw new Error("settingsManager no es válido. Debe ser una instancia de SettingsManager.");
 
     if (!(video instanceof HTMLVideoElement))
       throw new Error("video no es válido. Debe ser una instancia de HTMLVideoElement.");
@@ -90,7 +90,7 @@ class VideoManager {
     if (!(format instanceof HTMLSelectElement))
       throw new Error("format no es válido. Debe ser una instancia de HTMLSelectElement.");
 
-    this.timeManager = timeManager;
+    this.settingsManager = settingsManager;
     this.video = video;
     this.canvas = canvas;
     this.context = canvas.getContext("2d");
@@ -131,9 +131,9 @@ class VideoManager {
     this.name = file.name;
     this.video.src = URL.createObjectURL(file);
     // this.duration = await this.getVideoDuration();
-    this.timeManager.setTimes({
+    this.settingsManager.setTimes({
       startTime: 0,
-      lapTime: 5,
+      lapTime: 1,
       endTime: await this.getVideoDuration(),
       maxTime: await this.getVideoDuration()
     });
@@ -169,7 +169,7 @@ class VideoManager {
     this.video.src = "";
     this.clearFileInput();
     this.fileManager.resetAndShowInputForm();
-    this.timeManager.clear();
+    this.settingsManager.clear();
     // Limpiar el elemento de video
     this.video.load();
     // Liberar memoria
@@ -218,8 +218,8 @@ class VideoManager {
     if (!this.isLoaded()) return;
     showLoader();
     try {
-      const times = this.timeManager.getTimes(); //timeToArray(this.endTime | this.duration, this.lapTime, this.startTime);
-      const timeParams = this.timeManager.params;
+      const times = this.settingsManager.getTimes(); //timeToArray(this.endTime | this.duration, this.lapTime, this.startTime);
+      const timeParams = this.settingsManager.params;
       const isSameArchiveAndParams = this.memorizedParams.isSame({
         ...timeParams,
         name: this.name,
@@ -240,19 +240,20 @@ class VideoManager {
       const data = {
         name: getVideoFileName(this.name),
         width: this.video.videoWidth,
-        height: this.video.videoHeight
+        height: this.video.videoHeight,
+        compression: this.settingsManager.compression
       };
 
       if (this.format === "pdf") {
         await generatePDF(this.captures, data);
       } else if (this.format === "jpg") {
-        const { lapTime, startTime } = this.timeManager.params
+        const { lapTime, startTime } = this.settingsManager.params
         await downloadAsZip(this.captures, { baseName: data.name, lapTime, startTime });
       } else if (this.format === "gif") {
         await generateGIF(this.captures,{
           baseName: data.name,
-          delay: this.timeManager.intervalMedia,
-          compression:this.timeManager.compression
+          delay: this.settingsManager.intervalMedia,
+          compression:this.settingsManager.compression
         });
         // } else if (format === "webp") {
         //   await generateWebP(this.captures, data.name);
@@ -293,7 +294,7 @@ class DropContainerManager {
     });
   }
 }
-class TimeManager {
+class SettingsManager {
   constructor({ startTime, lapTime, endTime, intervalMedia, compressionInput }) {
     this.startTimeElement = startTime;
     this.lapTimeElement = lapTime;
@@ -322,7 +323,7 @@ class TimeManager {
     this.endTimeElement.value = value;
   }
   get lapTime() {
-    return parseFloat(this.lapTimeElement.value) || 5;
+    return parseFloat(this.lapTimeElement.value) || 1;
   }
   set lapTime(value) {
     this.lapTimeElement.max = this.endTime;
@@ -346,7 +347,7 @@ class TimeManager {
 
   clear() {
     this.startTime = 0;
-    this.lapTime = 5;
+    this.lapTime = 1;
     this.endTime = 0;
     this.maxTime = 0;
   }

@@ -19,7 +19,7 @@ const firstTitle = document.getElementById("first-title");
 const compressionInput = document.getElementById("conpression-input")
 
 const formatManager = new FormatManager({configContainer,firstTitle})
-const timeManager = new TimeManager({
+const settingsManager = new SettingsManager({
   startTime: startTimeInput,
   lapTime: document.getElementById("lapTimeInput"),
   endTime: endTimeInput,
@@ -35,7 +35,7 @@ const videoManager = new VideoManager({
   videoInput,
   fileManager,
   progressBar,
-  timeManager,
+  settingsManager,
   format,
 });
 const dropManager = new DropContainerManager({ dropZone, dropTitle, videoInput });

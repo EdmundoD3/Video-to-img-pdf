@@ -6,8 +6,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="styles.css">
   <title>Captura de Video a PDF</title>
+  <script src="gif.js"></script>
+  <script src="gif.worker.js"></script>
+  <script src="whammy.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+  
   <script src="scripts.js" defer></script>
 </head>
 
@@ -16,7 +20,7 @@
     <section class="app-container">
       <h2>📹 Convertir Video en PDF o Imágenes</h2>
 
-      <h1>Arrastra un video aqui para convertirlo en pdf</h1>
+      <h1 id="first-title">Arrastra un video aqui para convertirlo en pdf, gif o zip de jpg</h1>
       <video id="video" class="video" src="" controls>
         Tu navegador no soporta el elemento de video.
       </video>
@@ -52,26 +56,33 @@
         <input id="videoUpload" type="file" accept="video/*">
       </div>
 
-      <div class="config-container">
+      <div class="config-container none", id="config-container">
         <h3>Configuración de Captura</h3>
         <label>
           Iniciar (segundos):
-          <input type="number" id="startTimeInput" value="1" min="0" />
+          <input type="number" id="startTimeInput" min="0" step="0.1" value="0" />
         </label>
         <label>
           Finalizar (segundos):
-          <input type="number" id="endTimeInput" value="1" min="0" />
+          <input type="number" id="endTimeInput" min="0" step="0.1" value="0" />
         </label>
         <label>
           Intervalo (segundos):
-          <input type="number" id="lapTimeInput" value="5" min="1" />
+          <input type="number" id="lapTimeInput" min="0.1" step="0.1" value="5" />
         </label>
         <label>
           Formato de Captura:
           <select id="formatSelector">
             <option value="pdf">PDF</option>
+            <option value="gif">GIF</option>
+            <!-- <option value="webp">WEBP</option> -->
             <option value="jpg">JPG (ZIP)</option>
+            
           </select>
+        </label>
+        <label id="gifIntervalLabel" class="none">
+          Intervalo del <span id="lap-media">GIF</span>
+          <input type="number" id="media-interval-input" value="0.5" min="0.1" step="0.1" />
         </label>
       </div>
     
@@ -80,7 +91,7 @@
       </div>
     
       <div id="loader" class="loader none">
-        <span class="spinner"></span> Procesando... <span id="porcentaje"></span>
+        <span class="spinner"></span> <span id="porcentaje"></span> <span id="loader-message">Cargando...</span> 
       </div>
     
       <canvas id="canvas" width="400" height="300" style="display: none;"></canvas>

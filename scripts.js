@@ -43,7 +43,7 @@ async function generatePDF(images, { name = "capturas_video", width, height }) {
   const orientation = width > height ? "landscape" : "portrait";
   const pageWidth = pxToMm(width);
   const pageHeight = pxToMm(height);
-  
+
   // Crea el PDF con el tamaño de página correcto desde el inicio
   const pdf = new jsPDF({
     orientation,
@@ -56,13 +56,131 @@ async function generatePDF(images, { name = "capturas_video", width, height }) {
     if (i > 0) {
       pdf.addPage([pageWidth, pageHeight], orientation);
     }
-    
+
     pdf.addImage(img, typeImage.toUpperCase(), 0, 0, pageWidth, pageHeight);
     pdf.setFontSize(12);
     pdf.text(`Página ${i + 1}`, pageWidth - 30, pageHeight - 10);
   });
 
   pdf.save(`${name}-converted-to-PDF.pdf`);
+}
+// ==========================
+// 🖨️ Generador de Gif
+// ==========================
+
+async function generateGIF(images, baseName = "capturas_video", delay = 500) {
+  return new Promise((resolve) => {
+    const gif = new GIF({
+      workers: 2,
+      quality: 10,
+      width: 0, // Se establecerá con la primera imagen
+      height: 0, // Se establecerá con la primera imagen
+      workerScript: 'gif.worker.js'
+    });
+
+    let loadedImages = 0;
+    let hasError = false;
+
+    images.forEach((imgData) => {
+      const img = new Image();
+      img.onload = () => {
+        if (!hasError) {
+          // Establecer dimensiones del GIF con la primera imagen
+          if (loadedImages === 0) {
+            gif.options.width = img.width;
+            gif.options.height = img.height;
+          }
+
+          gif.addFrame(img, { delay: delay, copy: true });
+          loadedImages++;
+
+          if (loadedImages === images.length) {
+            gif.render();
+          }
+        }
+      };
+
+      img.onerror = () => {
+        console.error("Error al cargar imagen para GIF");
+        hasError = true;
+      };
+
+      img.src = imgData;
+    });
+
+    gif.on('finished', function (blob) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${baseName}.gif`;
+      a.click();
+      URL.revokeObjectURL(url);
+      resolve();
+    });
+
+    gif.on('abort', function () {
+      console.error("Generación de GIF abortada");
+      resolve();
+    });
+  });
+}
+
+// ==========================
+// 🖨️ Generador de ZIP
+// ==========================
+async function downloadAsZip(images, {baseName = "capturas",startTime=0, lapTime}) {
+  const zip = new JSZip();
+  images.forEach((imgData, index) => {
+    const base64Data = imgData.split(',')[1];
+    const time = `_time-${startTime+lapTime*index}s`||"";
+    zip.file(`img_${baseName}${time}_${index + 1}.jpg`, base64Data, { base64: true });
+  });
+
+  const content = await zip.generateAsync({ type: "blob" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(content);
+  a.download = `${baseName}.zip`;
+  a.click();
+}
+
+// ==========================
+// 🖨️ Generador de WebP
+// ==========================
+
+async function generateWebP(images, name = "capturas_video") {
+  return new Promise((resolve) => {
+    const encoder = new Whammy.Video(); // ❌ sin FPS
+
+    let loaded = 0;
+
+    images.forEach((imgData) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        canvas.getContext('2d').drawImage(img, 0, 0);
+
+        // ✅ Duración manual: 1000 ms por frame
+        encoder.add(canvas, 1000);
+
+        loaded++;
+
+        if (loaded === images.length) {
+          encoder.compile(false, (webm) => {
+            const url = URL.createObjectURL(webm);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${name}.webm`;
+            a.click();
+            URL.revokeObjectURL(url);
+            resolve();
+          });
+        }
+      };
+      img.src = imgData;
+    });
+  });
 }
 
 // ==========================
@@ -72,10 +190,14 @@ class FileManager {
   constructor({ dropZone, titleFile }) {
     this.dropZone = dropZone;
     this.titleFile = titleFile;
+    this._id = 0;
   }
 
   set title(value) {
     this.titleFile.textContent = value;
+  }
+  get id() {
+    return this._id;
   }
 
   hideInputForm() {
@@ -85,6 +207,7 @@ class FileManager {
   resetAndShowInputForm() {
     this.title = "Not selected file";
     this.dropZone.classList.remove("none");
+    this.desactiveMemorizedCaptures();
   }
 
   enableDrop(videoManager) {
@@ -93,6 +216,7 @@ class FileManager {
       this.dropZone.classList.remove("drag-over");
       if (e.dataTransfer.files.length > 0) {
         videoManager.inputFile(e.dataTransfer.files[0]);
+        this._id++;
       }
     });
   }
@@ -101,22 +225,48 @@ class FileManager {
 // ==========================
 // 🎞️ Manejo del video
 // ==========================
+class MemorizedParams {
+  constructor({ startTime, lapTime, endTime, name, id }) {
+    this.startTime = startTime;
+    this.lapTime = lapTime;
+    this.endTime = endTime;
+    this.name = name;
+    this.id = id;
+  }
+  actualize({ startTime, lapTime, endTime, name, id }) {
+    this.startTime = startTime;
+    this.lapTime = lapTime;
+    this.endTime = endTime;
+    this.name = name;
+    this.id = id;
+  }
+  isSame({ startTime, lapTime, endTime, name }) {
+    return this.startTime === startTime && this.lapTime === lapTime && this.endTime === endTime && this.name === name;
+  }
+}
 class VideoManager {
-  constructor({ video, canvas, startTime, endTime, lapTime, videoInput, fileManager, progressBar, timeManager }) {
+  constructor({ video, canvas, format, videoInput, fileManager = new FileManager({}), 
+  progressBar = new ProgressBar(), timeManager = new TimeManager({}), }) {
     this.timeManager = timeManager;
     this.video = video;
     this.canvas = canvas;
     this.context = canvas.getContext("2d");
-    this.startTime = parseInt(startTime.value) || 0;
-    this.endTime = parseInt(endTime.value) || 0;
-    this.lapTime = parseInt(lapTime.value) || 5;
     this.videoInput = videoInput;
     this.fileManager = fileManager;
     this.name = null;
-    // this.duration = null;
     this.progressBar = progressBar;
+    this.captures = null;
+    this._format = format;
+    this.memorizedParams = new MemorizedParams({
+      startTime: 0,
+      lapTime: 0,
+      endTime: 0,
+      name: ""
+    });
   }
-
+  get format() {
+    return this._format.value;
+  }
   inputStart() {
     this.videoInput.addEventListener("change", async (e) => {
       const file = e.target.files[0];
@@ -185,50 +335,62 @@ class VideoManager {
 
   async captureMultiple(times, totalCaptures) {
     const images = [];
+    this.progressBar.updateMessage("Capturando imágenes...");
     for (const time of times) {
-      this.progressBar.update(Math.round((images.length / totalCaptures) * 100));
+      this.progressBar.updatePorcentaje(Math.round((images.length / totalCaptures) * 100));
       await new Promise((resolve) => setTimeout(resolve, 100)); // Espera un poco para evitar problemas de rendimiento
       const img = await this.captureAt(time);
       images.push(img);
     }
+    this.progressBar.updatePorcentaje(100);
     return images;
   }
 
-  // async start() {
-  //   if (!this.isLoaded()) return;
-  //   const times = timeToArray(this.duration, this.lapTime, this.startTime);
-  //   const captures = await this.captureMultiple(times);
-
-  //   await generatePDF(captures, {
-  //     name: getVideoFileName(this.name),
-  //     width: this.video.videoWidth,
-  //     height: this.video.videoHeight
-  //   });
-  // }
-  async start(format = "pdf") {
+  async start() {
     if (!this.isLoaded()) return;
     showLoader();
     try {
       const times = this.timeManager.getTimes(); //timeToArray(this.endTime | this.duration, this.lapTime, this.startTime);
-      const totalCaptures = times.length;
-      const captures = await this.captureMultiple(times, totalCaptures);
+      const timeParams = this.timeManager.params;
+      const isSameArchiveAndParams = this.memorizedParams.isSame({
+        ...timeParams,
+        name: this.name,
+        id: this.fileManager.id
+      })
+      if (!isSameArchiveAndParams || this.captures === null) {
+        this.memorizedParams.actualize({
+          ...timeParams,
+          name: this.name,
+          id: this.fileManager.id
+        })
+        const totalCaptures = times.length;
+        this.captures = await this.captureMultiple(times, totalCaptures);
+      }
+      this.progressBar.ocultPorcentaje();
+      this.progressBar.updateMessage("Generando archivo...");
+
       const data = {
         name: getVideoFileName(this.name),
         width: this.video.videoWidth,
         height: this.video.videoHeight
       };
 
-      if (format === "pdf") {
-        await generatePDF(captures, data);
-      } else if (format === "jpg") {
-        await downloadAsZip(captures, data.name);
+      if (this.format === "pdf") {
+        await generatePDF(this.captures, data);
+      } else if (this.format === "jpg") {
+        const {lapTime,startTime}=this.timeManager.params
+        await downloadAsZip(this.captures, {baseName:data.name, lapTime, startTime});
+      } else if (this.format === "gif") {
+        await generateGIF(this.captures, data.name, this.timeManager.intervalMedia * 10);
+        // } else if (format === "webp") {
+        //   await generateWebP(this.captures, data.name);
       }
+    } catch (er){
+      console.error(er)
     } finally {
       hideLoader();
     }
   }
-
-
 }
 
 // ==========================
@@ -271,12 +433,16 @@ const video = document.getElementById("video");
 const canvas = document.getElementById("canvas");
 const captureBtn = document.getElementById("captureBtn");
 const porcentaje = document.getElementById("porcentaje");
+const format = document.getElementById("formatSelector");
+const intervalMedia = document.getElementById("media-interval-input");
+
 class TimeManager {
-  constructor({ startTime, lapTime, endTime }) {
+  constructor({ startTime, lapTime, endTime,intervalMedia }) {
     this.startTimeElement = startTime;
     this.lapTimeElement = lapTime;
     this.endTimeElement = endTime;
     this._maxTime = 0;
+    this._intervalMedia = intervalMedia;
   }
   get maxTime() {
     return this._maxTime;
@@ -284,16 +450,21 @@ class TimeManager {
   set maxTime(value) {
     this._maxTime = value;
     this.endTimeElement.max = value;
+    this._intervalMedia.max = value;
   }
-  get endTime () {
+  get endTime() {
     return parseInt(this.endTimeElement.value) || 0;
   }
+  get intervalMedia() {
+    return parseInt(this._intervalMedia.value) || 0;
+  }
+
   set endTime(value) {
     // this.startTimeElement.max = value;
     this.endTimeElement.value = value;
   }
   get lapTime() {
-    
+
     return parseInt(this.lapTimeElement.value) || 5;
   }
   set lapTime(value) {
@@ -327,37 +498,56 @@ class TimeManager {
   }
 
   getTimes() {
-    return timeToArray(this.endTime | this.maxTime, this.lapTime, this.startTime);
+    return timeToArray(this.endTime ?? this.maxTime, this.lapTime, this.startTime);
+  }
+  get params() {
+    return {
+      startTime: this.startTime,
+      lapTime: this.lapTime,
+      endTime: this.endTime
+    };
   }
 }
+const startTimeInput = document.getElementById("startTimeInput");
+const endTimeInput = document.getElementById("endTimeInput");
 const timeManager = new TimeManager({
-  startTime: document.getElementById("startTimeInput"),
+  startTime: startTimeInput,
   lapTime: document.getElementById("lapTimeInput"),
-  endTime: document.getElementById("endTimeInput"),
+  endTime: endTimeInput,
+  intervalMedia,
 });
+
 class ProgressBar {
-  constructor(porcentaje) {
+  constructor(porcentaje, message) {
     this.porcentaje = porcentaje;
+    this.message = message;
   }
 
-  update(value) {
+  updatePorcentaje(value) {
     this.porcentaje.textContent = `${value}%`;
-    // this.porcentaje.style.width = `${value}%`;
+  }
+  ocultPorcentaje() {
+    this.porcentaje.textContent = "";
+  }
+
+  updateMessage(message) {
+    this.message.textContent = message;
+  }
+  clear() {
+    this.message.textContent = "Cargando...";
   }
 }
-const progressBar = new ProgressBar(porcentaje);
+const progressBar = new ProgressBar(porcentaje, document.getElementById("loader-message"));
 
 const fileManager = new FileManager({ dropZone, titleFile: document.getElementById("title-file") });
 const videoManager = new VideoManager({
   video,
   canvas,
   videoInput,
-  startTime: document.getElementById("startTimeInput"),
-  lapTime: document.getElementById("lapTimeInput"),
   fileManager,
   progressBar,
-  endTime: document.getElementById("endTimeInput"),
-  timeManager
+  timeManager,
+  format,
 });
 const dropManager = new DropContainerManager({ dropZone, dropTitle, videoInput });
 dropManager.activate();
@@ -365,36 +555,62 @@ dropManager.activate();
 videoManager.inputStart();
 fileManager.enableDrop(videoManager);
 
-captureBtn.addEventListener("click", () => {
-  videoManager.startTime = parseInt(document.getElementById("startTimeInput").value);
-  videoManager.endTime = parseInt(document.getElementById("endTimeInput").value);
-  videoManager.lapTime = parseInt(document.getElementById("lapTimeInput").value);
-  const format = document.getElementById("formatSelector").value;
-  videoManager.start(format);
-
-});
+captureBtn.addEventListener("click", () => videoManager.start());
 
 deleteVideo.addEventListener("click", () => videoManager.deleteVideo());
 
 
-function showLoader() {
-  document.getElementById("loader").classList.remove("none");
-}
+const showLoader = () => document.getElementById("loader").classList.remove("none");
+
 function hideLoader() {
   document.getElementById("loader").classList.add("none");
 }
 
-async function downloadAsZip(images, baseName = "capturas") {
-  const zip = new JSZip();
-  images.forEach((imgData, index) => {
-    const base64Data = imgData.split(',')[1];
-    zip.file(`img_${index + 1}.jpg`, base64Data, { base64: true });
-  });
 
-  const content = await zip.generateAsync({ type: "blob" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(content);
-  a.download = `${baseName}.zip`;
-  a.click();
-}
+
+// ==========================
+// 🖨️ Formato de salida
+// ==========================
+const IntervalList = ["gif"]
+const gifIntervalLabel = document.getElementById("gifIntervalLabel");
+format.addEventListener("change", () => {
+  const selectedFormat = format.value;
+  if (IntervalList.includes(selectedFormat)) {
+    gifIntervalLabel.classList.remove("none");
+  } else {
+    gifIntervalLabel.classList.add("none");
+  }
+});
+
+startTimeInput.addEventListener("input", () => {
+  // Obtener el valor del input y asignarlo al currentTime del video
+  const startTime = parseFloat(startTimeInput.value);
+  
+  if (!isNaN(startTime)) {
+    video.currentTime = startTime;  // Ajusta el tiempo de inicio del video
+  }
+});
+endTimeInput.addEventListener("input", () => {
+  // Obtener el valor del input y asignarlo al currentTime del video
+  const startTime = parseFloat(endTimeInput.value);
+  
+  if (!isNaN(startTime)) {
+    video.currentTime = startTime;  // Ajusta el tiempo de inicio del video
+  }
+});
+
+const configContainer = document.getElementById("config-container");
+const firstTitle = document.getElementById("first-title");
+
+videoInput.addEventListener("change", () => {
+  if (videoInput.files.length > 0) {
+    // Hay un archivo seleccionado
+    configContainer.classList.remove("none");
+    firstTitle.textContent = "Configura el video y selecciona el formato de salida";
+  } else {
+    // No hay archivo seleccionado
+    configContainer.classList.add("none");
+    firstTitle.textContent = "Arrastra un video aqui para convertirlo en pdf, gif o zip de jpg";
+  }
+});
 

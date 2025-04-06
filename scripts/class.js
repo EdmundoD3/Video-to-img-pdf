@@ -238,23 +238,18 @@ class VideoManager {
       this.progressBar.updateMessage("Generando archivo...");
 
       const data = {
-        name: getVideoFileName(this.name),
+        baseName: getVideoFileName(this.name),
         width: this.video.videoWidth,
         height: this.video.videoHeight,
-        compression: this.settingsManager.compression
+        ... this.settingsManager.params
       };
 
       if (this.format === "pdf") {
         await generatePDF(this.captures, data);
       } else if (this.format === "jpg") {
-        const { lapTime, startTime } = this.settingsManager.params
-        await downloadAsZip(this.captures, { baseName: data.name, lapTime, startTime });
+        await downloadAsZip(this.captures, data);
       } else if (this.format === "gif") {
-        await generateGIF(this.captures,{
-          baseName: data.name,
-          delay: this.settingsManager.intervalMedia,
-          compression:this.settingsManager.compression
-        });
+        await generateGIF(this.captures,data);
         // } else if (format === "webp") {
         //   await generateWebP(this.captures, data.name);
       }
@@ -365,7 +360,8 @@ class SettingsManager {
       startTime: this.startTime,
       lapTime: this.lapTime,
       endTime: this.endTime,
-      compression:this.compression
+      compression:this.compression,
+      delay:this.intervalMedia
     };
   }
 }

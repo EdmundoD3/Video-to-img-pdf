@@ -39,13 +39,13 @@ function loadImageAsDataURL(url) {
 // ==========================
 // 🖨️ Generador de PDF
 // ==========================
-async function generatePDF(images, { name = "capturas_video", width, height, compression = 100 }) {
+async function generatePDF(images, {
+  baseName = "capturas_video",
+  width,
+  height,
+  compression = 100
+}) {
   if (!images?.length) throw new Error("No hay imágenes para generar PDF");
-  
-  // Validar parámetro de compresión
-  if (compression <= 0 || compression > 100) {
-    throw new Error("El porcentaje de compresión debe estar entre 1 y 100");
-  }
 
   const orientation = width > height ? "landscape" : "portrait";
   const pageWidth = pxToMm(width);
@@ -58,56 +58,31 @@ async function generatePDF(images, { name = "capturas_video", width, height, com
     hotfixes: ["px_scaling"]
   });
 
-  // Procesar cada imagen con compresión
   for (let i = 0; i < images.length; i++) {
     let imgData = images[i];
-    
-    // Aplicar compresión si no es 100%
+
     if (compression < 100) {
-      imgData = await compressImageForPDF(imgData, compression);
+      // Usar la función unificada de compresión
+      imgData = await compressImage(imgData, compression, typeImage);
     }
 
     if (i > 0) pdf.addPage([pageWidth, pageHeight], orientation);
-    
-    pdf.addImage(imgData, typeImage.toUpperCase(), 0, 0, pageWidth, pageHeight, 
+
+    pdf.addImage(imgData, typeImage.toUpperCase(), 0, 0, pageWidth, pageHeight,
       undefined, compression < 50 ? 'FAST' : 'MEDIUM');
-    
+
     pdf.setFont("helvetica", "normal");
     pdf.setTextColor(100);
     pdf.text(`Página ${i + 1}`, pageWidth - 30, pageHeight - 10);
   }
 
-  pdf.save(`${name}-converted-to-PDF.pdf`);
-}
-
-// Función auxiliar para compresión de imágenes
-async function compressImageForPDF(imageData, qualityPercent) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      
-      // Calcular nuevas dimensiones
-      const scale = qualityPercent / 100;
-      canvas.width = img.width * scale;
-      canvas.height = img.height * scale;
-      
-      // Dibujar imagen redimensionada
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      
-      // Convertir a formato compatible con jsPDF
-      const compressedData = canvas.toDataURL(`image/${typeImage}`, 0.8);
-      resolve(compressedData);
-    };
-    img.src = imageData;
-  });
+  pdf.save(`${baseName}-converted-to-PDF.pdf`);
 }
 // ==========================
 // 🖨️ Generador de Gif
 // ==========================
 
-async function generateGIF(images, {baseName = "capturas_video", delay = 500, compression = 100}) {
+async function generateGIF(images, { baseName = "capturas_video", delay = 500, compression = 100 }) {
   return new Promise((resolve) => {
     const gif = new GIF({
       workers: 2,
@@ -138,7 +113,7 @@ async function generateGIF(images, {baseName = "capturas_video", delay = 500, co
           canvas.width = targetWidth;
           canvas.height = targetHeight;
           const ctx = canvas.getContext('2d');
-          
+
           // Dibujar imagen redimensionada
           ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
 
@@ -149,8 +124,8 @@ async function generateGIF(images, {baseName = "capturas_video", delay = 500, co
           }
 
           // Agregar frame comprimido
-          gif.addFrame(canvas, { 
-            delay: delay, 
+          gif.addFrame(canvas, {
+            delay: delay,
             copy: true,
             width: targetWidth,
             height: targetHeight
@@ -192,20 +167,186 @@ async function generateGIF(images, {baseName = "capturas_video", delay = 500, co
 // ==========================
 // 🖨️ Generador de ZIP
 // ==========================
-async function downloadAsZip(images, { baseName = "capturas", startTime = 0, lapTime }) {
-  if (!images?.length) throw new Error("No hay imágenes para comprimir");
-  const zip = new JSZip();
-  images.forEach((imgData, index) => {
-    const base64Data = imgData.split(',')[1];
-    const time = `_time-${startTime + lapTime * index}s` || "";
-    zip.file(`img_${baseName}${time}_${index + 1}.jpg`, base64Data, { base64: true });
-  });
 
-  const content = await zip.generateAsync({ type: "blob" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(content);
-  a.download = `${baseName}.zip`;
-  a.click();
+async function downloadAsZip(images, { 
+  baseName = "capturas", 
+  startTime = 0, 
+  lapTime,
+  compression = 100
+}) {
+  if (!images?.length) throw new Error("No hay imágenes para comprimir");
+  
+  if (compression <= 0 || compression > 100) {
+    throw new Error("El porcentaje de compresión debe estar entre 1 y 100");
+  }
+
+  const zip = new JSZip();
+  const quality = compression / 100;
+
+  // Procesar imágenes en lotes
+  const batchSize = 5;
+  for (let i = 0; i < images.length; i += batchSize) {
+    const batch = images.slice(i, i + batchSize);
+    await Promise.all(batch.map(async (imgData, batchIndex) => {
+      try {
+        const globalIndex = i + batchIndex;
+        const time = startTime + lapTime * globalIndex;
+        
+        if (typeof imgData !== 'string') {
+          throw new Error(`La imagen ${globalIndex + 1} no es un dato válido`);
+        }
+
+        let base64Data;
+        if (compression < 100) {
+          const compressedData = await compressImage(imgData, compression, 'jpeg');
+          base64Data = extractBase64(compressedData);
+        } else {
+          base64Data = extractBase64(imgData);
+        }
+        
+        // Verificación adicional
+        if (typeof base64Data !== 'string' || base64Data.includes('data:')) {
+          throw new Error(`Formato incorrecto en imagen ${globalIndex + 1}`);
+        }
+        
+        zip.file(`img_${baseName}_${time}s_${globalIndex + 1}.jpg`, base64Data, { 
+          base64: true,
+          compression: compression < 100 ? "STORE" : "DEFLATE"
+        });
+      } catch (error) {
+        console.error(`Error procesando imagen ${i + batchIndex + 1}:`, error);
+        throw error; // Opcional: puedes decidir continuar con las demás imágenes
+      }
+    }));
+  }
+
+  try {
+    const content = await zip.generateAsync({
+      type: "blob",
+      compression: compression < 100 ? "STORE" : "DEFLATE"
+    });
+
+    const url = URL.createObjectURL(content);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${baseName}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    
+    // Limpieza inmediata después de click (no necesitas esperar 100ms)
+    requestAnimationFrame(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+  } catch (error) {
+    console.error("Error generando el ZIP:", error);
+    throw error;
+  }
+}
+
+// Función de compresión mejorada
+async function compressImage(imageData, qualityPercent, outputType = 'jpeg') {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0);
+      
+      const quality = outputType === 'png' ? 
+        Math.min(1, qualityPercent / 100) : 
+        qualityPercent / 100;
+      
+      resolve(canvas.toDataURL(`image/${outputType}`, quality));
+    };
+    img.src = imageData;
+  });
+}
+
+/**
+ * Extrae solo la parte Base64 de un Data URL
+ * @param {string} dataUrl - Ej: 'data:image/jpeg;base64,/9j/4AAQSkZJRg...'
+ * @returns {string} - Solo la parte Base64
+ */
+function extractBase64(dataUrl) {
+  if (typeof dataUrl !== 'string') {
+    return dataUrl; // Asumimos que ya es base64 si no es string
+  }
+
+  if (!dataUrl.startsWith('data:')) {
+    return dataUrl; // Ya está en formato base64
+  }
+
+  const commaPos = dataUrl.indexOf(',');
+  if (commaPos === -1) {
+    throw new Error(`Data URL mal formado: ${dataUrl.substring(0, 50)}${dataUrl.length > 50 ? '...' : ''}`);
+  }
+
+  return dataUrl.slice(commaPos + 1);
+}
+
+// Función de compresión (actualizada para devolver solo Base64)
+async function compressImage(imageData, qualityPercent, outputType = typeImage) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      const scale = qualityPercent < 50 ? 
+        Math.max(0.1, qualityPercent / 100 * 1.5) : 
+        qualityPercent / 100;
+      
+      canvas.width = Math.max(1, img.width * scale);
+      canvas.height = Math.max(1, img.height * scale);
+      
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      
+      const quality = outputType === 'png' ? 1.0 : Math.min(0.9, 0.7 * (qualityPercent / 100));
+      const fullDataUrl = canvas.toDataURL(`image/${outputType}`, quality);
+      resolve(extractBase64(fullDataUrl)); // Devuelve solo Base64
+    };
+    img.src = imageData;
+  });
+}
+/**
+ * Función optimizada para compresión de imágenes (compatible con PDF y ZIP)
+ * @param {string} imageData - DataURL de la imagen (ej: 'data:image/jpeg;base64,...')
+ * @param {number} qualityPercent - Porcentaje de calidad (1-100)
+ * @param {string} [outputType='jpeg'] - Tipo de salida ('jpeg' o 'png')
+ * @returns {Promise<string>} - DataURL de la imagen comprimida
+ */
+async function compressImage(imageData, qualityPercent, outputType = typeImage) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+
+      // Calcular escala inteligente (mayor reducción para calidades bajas)
+      const scale = qualityPercent < 50 ?
+        Math.max(0.1, qualityPercent / 100 * 1.5) :
+        qualityPercent / 100;
+
+      canvas.width = Math.max(1, img.width * scale);
+      canvas.height = Math.max(1, img.height * scale);
+
+      // Configurar calidad de renderizado
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      // Convertir con calidad ajustada (0.7 es un buen balance para PDF)
+      const quality = outputType === 'png' ? 1.0 : Math.min(0.9, 0.7 * (qualityPercent / 100));
+      const compressedData = canvas.toDataURL(`image/${outputType}`, quality);
+      resolve(compressedData);
+    };
+    img.src = imageData;
+  });
 }
 
 // ==========================

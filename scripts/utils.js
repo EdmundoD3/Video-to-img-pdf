@@ -71,30 +71,55 @@ async function generatePDF(images, { name = "capturas_video", width, height }) {
 // 🖨️ Generador de Gif
 // ==========================
 
-async function generateGIF(images, baseName = "capturas_video", delay = 500) {
+async function generateGIF(images, {baseName = "capturas_video", delay = 500, compression = 100}) {
   return new Promise((resolve) => {
     const gif = new GIF({
       workers: 2,
       quality: 10,
-      width: 0, // Se establecerá con la primera imagen
-      height: 0, // Se establecerá con la primera imagen
       workerScript: 'gif.worker.js'
     });
 
     let loadedImages = 0;
     let hasError = false;
+    let targetWidth, targetHeight;
 
     images.forEach((imgData) => {
       const img = new Image();
       img.onload = () => {
         if (!hasError) {
-          // Establecer dimensiones del GIF con la primera imagen
-          if (loadedImages === 0) {
-            gif.options.width = img.width;
-            gif.options.height = img.height;
+          // Calcular dimensiones comprimidas
+          if (compression < 100) {
+            const scale = compression / 100;
+            targetWidth = Math.round(img.width * scale);
+            targetHeight = Math.round(img.height * scale);
+          } else {
+            targetWidth = img.width;
+            targetHeight = img.height;
           }
 
-          gif.addFrame(img, { delay: delay, copy: true });
+          // Crear canvas para redimensionar
+          const canvas = document.createElement('canvas');
+          canvas.width = targetWidth;
+          canvas.height = targetHeight;
+          const ctx = canvas.getContext('2d');
+          
+          // Dibujar imagen redimensionada
+          ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+          // Establecer dimensiones del GIF con la primera imagen
+          if (loadedImages === 0) {
+            gif.options.width = targetWidth;
+            gif.options.height = targetHeight;
+          }
+
+          // Agregar frame comprimido
+          gif.addFrame(canvas, { 
+            delay: delay, 
+            copy: true,
+            width: targetWidth,
+            height: targetHeight
+          });
+
           loadedImages++;
 
           if (loadedImages === images.length) {

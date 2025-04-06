@@ -65,6 +65,15 @@
     <div class="config-container none" , id="config-container">
       <h3>Configuración de Captura</h3>
       <label>
+        Formato de Captura:
+        <select id="formatSelector">
+          <option value="pdf">PDF</option>
+          <option value="gif">GIF</option>
+          <!-- <option value="webp">WEBP</option> -->
+          <option value="jpg">JPG (ZIP)</option>
+        </select>
+      </label>
+      <label>
         Iniciar 
         <span class="tooltip" aria-describedby="duration-tooltip">
           (s):
@@ -95,18 +104,19 @@
             <span class="tooltip-arrow"></span>
           </span>
         </span>
-        <input type="number" id="lapTimeInput" min="0.1" step="0.1" value="5" />
+        <input type="number" id="lapTimeInput" min="0.1" step="0.1" value="1" />
       </label>
       <label>
-        Formato de Captura:
-        <select id="formatSelector">
-          <option value="pdf">PDF</option>
-          <option value="gif">GIF</option>
-          <!-- <option value="webp">WEBP</option> -->
-          <option value="jpg">JPG (ZIP)</option>
-
-        </select>
+        <span class="tooltip" aria-describedby="duration-tooltip">
+          Compresion:
+          <span id="duration-tooltip" class="tooltiptext" role="tooltip">
+            100% no hay compresion
+            <span class="tooltip-arrow"></span>
+          </span>
+        </span>
+        <input type="number" id="conpression-input" min="20" max="100" step="0.5" value="80" />%
       </label>
+
       <label id="gifIntervalLabel" class="none">
         Intervalo del 
         <span id="lap-media">GIF</span> 

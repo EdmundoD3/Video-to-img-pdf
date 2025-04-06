@@ -16,16 +16,16 @@ const startTimeInput = document.getElementById("startTimeInput");
 const endTimeInput = document.getElementById("endTimeInput");
 const configContainer = document.getElementById("config-container");
 const firstTitle = document.getElementById("first-title");
+const compressionInput = document.getElementById("conpression-input")
 
 const formatManager = new FormatManager({configContainer,firstTitle})
 const timeManager = new TimeManager({
   startTime: startTimeInput,
   lapTime: document.getElementById("lapTimeInput"),
   endTime: endTimeInput,
+  compressionInput,
   intervalMedia,
 });
-
-
 
 const progressBar = new ProgressBar(porcentaje, document.getElementById("loader-message"));
 const fileManager = new FileManager({ dropZone, titleFile: document.getElementById("title-file"),formatManager });
@@ -97,3 +97,43 @@ videoInput.addEventListener("change", () => {
     formatManager.desactivate()
   }
 });
+
+
+// clean
+// Al iniciar la aplicación
+window.addEventListener('load', () => {
+  if (performance.navigation.type === 1) { // 1 indica recarga
+    cleanupMedia();
+  }
+});
+
+// Al cerrar la pestaña/navegador
+window.addEventListener('beforeunload', () => {
+  cleanupMedia();
+});
+
+function cleanupMedia() {
+  // Limpiar src del video
+  const videoElement = document.getElementById('video');
+  if (videoElement) {
+    videoElement.src = '';
+    videoElement.removeAttribute('src');
+    videoElement.load();
+  }
+  
+  // Liberar URLs de objetos creados
+  if (window.mediaBlobUrl) {
+    URL.revokeObjectURL(window.mediaBlobUrl);
+    delete window.mediaBlobUrl;
+  }
+  
+  // Limpiar canvas
+  const canvas = document.getElementById('canvas');
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+  
+  // Limpiar almacenamiento local/session
+  sessionStorage.removeItem('videoState');
+}

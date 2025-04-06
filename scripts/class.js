@@ -3,11 +3,11 @@
 // 📂 Manejo del archivo
 // ==========================
 class FileManager {
-  constructor({ dropZone, titleFile, formatManager=new FormatManager({}) }) {
+  constructor({ dropZone, titleFile, formatManager = new FormatManager({}) }) {
     this.dropZone = dropZone;
     this.titleFile = titleFile;
     this._id = 0;
-    this.formatManager= formatManager
+    this.formatManager = formatManager
   }
 
   set title(value) {
@@ -117,9 +117,10 @@ class VideoManager {
     });
   }
   clearFileInput = () => {
-    if (this.videoInput) {
-      this.videoInput.value = ''; // Método más confiable
-    }
+    this.videoInput.value = '';
+    this.videoInput.type = '';
+    this.videoInput.type = 'file';
+    
   };
 
   async inputFile(file) {
@@ -169,10 +170,20 @@ class VideoManager {
     this.clearFileInput();
     this.fileManager.resetAndShowInputForm();
     this.timeManager.clear();
-
-    // Limpiar capturas previas
-    if (this.captures) {
-      this.captures = null;
+    // Limpiar el elemento de video
+    this.video.load();
+    // Liberar memoria
+    if (this.video.src.startsWith('blob:')) {
+      URL.revokeObjectURL(this.video.src);
+    }
+    this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    // Resetear estado
+    this.name = null;
+    this.captures = null;
+    this.clearFileInput();
+    // Forzar garbage collection (en algunos navegadores)
+    if (window.gc) {
+      window.gc();
     }
   }
 
@@ -238,7 +249,11 @@ class VideoManager {
         const { lapTime, startTime } = this.timeManager.params
         await downloadAsZip(this.captures, { baseName: data.name, lapTime, startTime });
       } else if (this.format === "gif") {
-        await generateGIF(this.captures, data.name, this.timeManager.intervalMedia);
+        await generateGIF(this.captures,{
+          baseName: data.name,
+          delay: this.timeManager.intervalMedia,
+          compression:this.timeManager.compression
+        });
         // } else if (format === "webp") {
         //   await generateWebP(this.captures, data.name);
       }
@@ -279,12 +294,13 @@ class DropContainerManager {
   }
 }
 class TimeManager {
-  constructor({ startTime, lapTime, endTime, intervalMedia }) {
+  constructor({ startTime, lapTime, endTime, intervalMedia, compressionInput }) {
     this.startTimeElement = startTime;
     this.lapTimeElement = lapTime;
     this.endTimeElement = endTime;
     this._maxTime = 0;
     this._intervalMedia = intervalMedia;
+    this.compressionInput = compressionInput
   }
   get maxTime() {
     return this._maxTime;
@@ -292,39 +308,42 @@ class TimeManager {
   set maxTime(value) {
     this._maxTime = value;
     this.endTimeElement.max = value;
-    this._intervalMedia.max = value;
   }
   get endTime() {
-    return parseInt(this.endTimeElement.value) || 0;
+    return parseFloat(this.endTimeElement.value) || 0;
   }
   get intervalMedia() {
-    return parseInt(this._intervalMedia.value) || 0;
+    return parseFloat(this._intervalMedia.value) || 0;
   }
 
   set endTime(value) {
     // this.startTimeElement.max = value;
+    this._intervalMedia.max = value * 1000;
     this.endTimeElement.value = value;
   }
   get lapTime() {
-
-    return parseInt(this.lapTimeElement.value) || 5;
+    return parseFloat(this.lapTimeElement.value) || 5;
   }
   set lapTime(value) {
     this.lapTimeElement.max = this.endTime;
     this.lapTimeElement.value = value;
   }
   get startTime() {
-    const startTime = parseInt(this.startTimeElement.value) || 0;
+    const startTime = parseFloat(this.startTimeElement.value) || 0;
     if (startTime > this.endTime) {
       this.startTimeElement.value = this.endTime;
       return this.endTime;
     }
-    return parseInt(this.startTimeElement.value) || 0;
+    return parseFloat(this.startTimeElement.value) || 0;
   }
   set startTime(value) {
     this.startTimeElement.max = this.endTime;
     this.startTimeElement.value = value;
   }
+  get compression(){
+    return parseFloat(this.compressionInput.value);
+  }
+
   clear() {
     this.startTime = 0;
     this.lapTime = 5;
@@ -344,7 +363,8 @@ class TimeManager {
     return {
       startTime: this.startTime,
       lapTime: this.lapTime,
-      endTime: this.endTime
+      endTime: this.endTime,
+      compression:this.compression
     };
   }
 }
@@ -367,15 +387,15 @@ class ProgressBar {
   }
 }
 class FormatManager {
-  constructor({configContainer, firstTitle}){
+  constructor({ configContainer, firstTitle }) {
     this.configContainer = configContainer;
     this.firstTitle = firstTitle;
   }
-  activate(){
+  activate() {
     this.configContainer.classList.remove("none");
     this.firstTitle.textContent = "Configura el video y selecciona el formato de salida";
   }
-  desactivate(){
+  desactivate() {
     configContainer.classList.add("none");
     firstTitle.textContent = "Arrastra un video aqui para convertirlo en pdf, gif o zip de jpg";
   }

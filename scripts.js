@@ -1,4 +1,5 @@
-
+const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+const MAX_MOBILE_SIZE_MB = 50; // 50MB ejemplo
 // ==========================
 // 🚀 Inicialización
 // ==========================
@@ -89,6 +90,12 @@ endTimeInput.addEventListener("input", () => {
 
 
 videoInput.addEventListener("change", () => {
+  if (isMobile && file.size > MAX_MOBILE_SIZE_MB * 1024 * 1024) {
+    showError(`Archivo muy pesado para móvil (>${MAX_MOBILE_SIZE_MB}MB). 
+              Usa un video más corto o cambia a modo escritorio.`);
+    videoInput.value = ''; // Limpiar input
+    return;
+  }
   if (videoInput.files.length > 0) {
     // Hay un archivo seleccionado
     formatManager.activate()

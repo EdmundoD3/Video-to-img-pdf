@@ -17,7 +17,7 @@ body {
   border-radius: 1rem;
   box-shadow: 0 4px 20px rgba(0,0,0,0.1);
   width: 100%;
-  max-width: 800px;
+  max-width: 900px;
   text-align: center;
 }
 
@@ -52,7 +52,7 @@ h1, h2 {
 /* Componente de carga de archivos */
 .container {
   height: auto;
-  width: 300px;
+  width: auto;
   border-radius: 10px;
   box-shadow: 4px 4px 30px rgba(0, 0, 0, .2);
   display: flex;
@@ -63,6 +63,22 @@ h1, h2 {
   gap: 5px;
   background-color: rgba(0, 110, 255, 0.041);
   margin: 1rem auto;
+}
+
+@media (min-width: 700px) {
+  .container {
+    max-width: 300px;
+    padding: 2rem;
+  }
+
+  .header {
+    flex: 0 0 45%;
+    margin: 0;
+  }
+
+  .footer {
+    justify-content: center;
+  }
 }
 
 .header {

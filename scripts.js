@@ -90,6 +90,7 @@ endTimeInput.addEventListener("input", () => {
 
 
 videoInput.addEventListener("change", () => {
+  const file = e.target.files[0];
   if (isMobile && file.size > MAX_MOBILE_SIZE_MB * 1024 * 1024) {
     showError(`Archivo muy pesado para móvil (>${MAX_MOBILE_SIZE_MB}MB). 
               Usa un video más corto o cambia a modo escritorio.`);
@@ -144,3 +145,4 @@ function cleanupMedia() {
   // Limpiar almacenamiento local/session
   sessionStorage.removeItem('videoState');
 }
+if(isMobile) document.getElementById("mobile-message").classList.remove("none")

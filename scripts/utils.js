@@ -388,3 +388,10 @@ async function generateWebP(images, name = "capturas_video") {
     });
   });
 }
+function showError(message) {
+  const errorBox = document.createElement('div');
+  errorBox.className = 'mobile-error';
+  errorBox.textContent = message;
+  document.body.prepend(errorBox);
+  setTimeout(() => errorBox.remove(), 5000);
+}

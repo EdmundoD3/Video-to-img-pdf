@@ -87,9 +87,7 @@ endTimeInput.addEventListener("input", () => {
   }
 });
 
-
-
-videoInput.addEventListener("change", () => {
+videoInput.addEventListener("change", (e) => {
   const file = e.target.files[0];
   if (isMobile && file.size > MAX_MOBILE_SIZE_MB * 1024 * 1024) {
     showError(`Archivo muy pesado para móvil (>${MAX_MOBILE_SIZE_MB}MB). 

@@ -143,4 +143,4 @@ function cleanupMedia() {
   // Limpiar almacenamiento local/session
   sessionStorage.removeItem('videoState');
 }
-if(isMobile) document.getElementById("mobile-message").classList.remove("none")
+// if(isMobile) document.getElementById("mobile-message").classList.remove("none")
